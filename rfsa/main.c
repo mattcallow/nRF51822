@@ -26,8 +26,8 @@ typedef struct {
 } my_event_t;
 
 /**< Maximum size of scheduler events. */
-#define SCHED_MAX_EVENT_DATA_SIZE        MAX(APP_TIMER_SCHED_EVT_SIZE,\
-                                             sizeof(my_event_t))          
+#define SCHED_MAX_EVENT_DATA_SIZE        MAX(APP_TIMER_SCHED_EVT_SIZE, sizeof(my_event_t))          
+
 /**< Maximum number of events in the scheduler queue. */
 #define SCHED_QUEUE_SIZE                 8
 
@@ -80,6 +80,7 @@ void wait_timer_handler(void *p_context)
 {
   static int i=0;
   app_trace_log("timer count %d\r\n", i++);
+  LEDS_INVERT(BSP_LED_0_MASK);
 }
 
 /**@brief   Function for handling UART interrupts.
@@ -148,10 +149,20 @@ void spi_master_init(void)
   spi_master_evt_handler_reg(SPI_MASTER_0, spi_master_event_handler);
 }
 
+
+#ifdef DEBUG
+#define DBG_DELAY 200
+#define DBGP(mask) do { LEDS_ON(mask); nrf_delay_ms(DBG_DELAY); } while (0);
+#else
+#define DBGP(mask)
+#endif
 int main()
 {
   uint32_t err_code;
-  nrf_gpio_range_cfg_output(8, 31);
+  // nrf_gpio_range_cfg_output(8, 31);
+  LEDS_CONFIGURE(LEDS_MASK);
+  LEDS_OFF(LEDS_MASK);
+  DBGP(BSP_LED_0_MASK);
 
   nrf_drv_clock_init(NULL);
   nrf_drv_clock_hfclk_request();
@@ -176,6 +187,7 @@ int main()
   APP_TIMER_APPSH_INIT(TIMER_RTC_PRESCALER, 8, 8, true);
 
 
+  DBGP(BSP_LED_1_MASK);
   app_trace_log("Set up radio\r\n");
   // Setup the radio
   uesb_config_t uesb_config       = UESB_DEFAULT_CONFIG;
@@ -194,24 +206,26 @@ int main()
   //app_trace_log("Set up SPI\r\n");
   //spi_master_init();
 
+  DBGP(BSP_LED_2_MASK); 
   app_timer_id_t wait_timer_id;
   err_code = app_timer_create(&wait_timer_id, APP_TIMER_MODE_REPEATED , wait_timer_handler);
   app_trace_log("%ld: wait_timer_id is %ld\r\n", err_code, wait_timer_id);
   APP_ERROR_CHECK(err_code);
-  uint32_t ticks = APP_TIMER_TICKS(20, TIMER_RTC_PRESCALER);
+  uint32_t ticks = APP_TIMER_TICKS(1000, TIMER_RTC_PRESCALER);
   err_code = app_timer_start(wait_timer_id, ticks, NULL);
   app_trace_log("%ld: ticks=%ld\r\n", err_code, ticks);
   err_code = app_sched_event_put(NULL, 0, test_handler);
   app_trace_log("%ld: event scheduled\r\n", err_code);
   // err_code = app_sched_event_put(NULL, 0, test_handler);
   // app_trace_log("%ld: event scheduled\r\n", err_code);
-  unsigned int i=0;
+  //unsigned int i=0;
+  LEDS_OFF(LEDS_MASK);
   for(;;)
   {
     app_sched_execute();
-    app_trace_log("main loop count %d\r\n", i++);
-    nrf_delay_ms(20);
-    //__WFI();
+    //app_trace_log("main loop count %d\r\n", i++);
+    //nrf_delay_ms(20);
+    __WFI();
   }
 
   return 0;
