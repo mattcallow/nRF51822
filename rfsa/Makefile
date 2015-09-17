@@ -2,6 +2,7 @@ PROJECT_NAME := rfsa
 
 SDK_PATH=$(abspath ../nRF51_SDK_9.0.0)
 MICROESB_PATH=../nrf51-micro-esb
+LIBRARIES_PATH=$(abspath ../libraries)
 export OUTPUT_FILENAME
 #MAKEFILE_NAME := $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 MAKEFILE_NAME := $(MAKEFILE_LIST)
@@ -40,7 +41,6 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 #source common to all targets
 C_SOURCE_FILES += \
 $(abspath $(SDK_PATH)/components/toolchain/system_nrf51.c) \
-$(abspath $(MICROESB_PATH)/common/micro_esb.c) \
 $(abspath $(SDK_PATH)/components/libraries/util/app_error.c) \
 $(abspath $(SDK_PATH)/components/drivers_nrf/uart/app_uart_fifo.c)\
 $(abspath $(SDK_PATH)/components/libraries/fifo/app_fifo.c)\
@@ -55,9 +55,14 @@ $(SDK_PATH)/components/libraries/timer/app_timer_appsh.c\
 $(SDK_PATH)/components/libraries/scheduler/app_scheduler.c\
 $(SDK_PATH)/components/libraries/util/app_util_platform.c\
 $(SDK_PATH)/components/drivers_nrf/hal/nrf_delay.c\
+$(SDK_PATH)/components/drivers_nrf/nrf_soc_nosd/nrf_soc.c\
 main.c \
 
-#$(abspath $(SDK_PATH)/components/drivers_nrf/nrf_soc_nosd/nrf_soc.c)\
+## $(MICROESB_PATH)/common/micro_esb.c\
+
+CPP_SOURCE_FILES = \
+
+#$(LIBRARIES_PATH)/Adafruit_SSD1306/Adafruit_SSD1306.cpp\
 
 #assembly files common to all targets
 ASM_SOURCE_FILES  = $(abspath $(SDK_PATH)/components/toolchain/gcc/gcc_startup_nrf51.s)
@@ -84,6 +89,8 @@ INC_PATHS += -I$(abspath $(SDK_PATH)/components/drivers_nrf/common)
 INC_PATHS += -I$(abspath $(SDK_PATH)/components/drivers_nrf/spi_master)
 INC_PATHS += -I$(SDK_PATH)/components/drivers_nrf/clock
 INC_PATHS += -I$(abspath $(MICROESB_PATH)/common)
+INC_PATHS += -I$(LIBRARIES_PATH)/Adafruit_SSD1306
+INC_PATHS += -I$(LIBRARIES_PATH)/Adafruit-GFX-Library
 INC_PATHS += -I.
 
 OBJECT_DIRECTORY = _build
@@ -94,20 +101,25 @@ OUTPUT_BINARY_DIRECTORY = $(OBJECT_DIRECTORY)
 BUILD_DIRECTORIES := $(sort $(OBJECT_DIRECTORY) $(OUTPUT_BINARY_DIRECTORY) $(LISTING_DIRECTORY) )
 
 #flags common to all targets
-CFLAGS  = -DESB_PRESENT
-CFLAGS += -DNRF51
-CFLAGS += -DDEBUG
-CFLAGS += -DENABLE_DEBUG_LOG_SUPPORT
-CFLAGS += -DBOARD_CUSTOM
-CFLAGS += -DBSP_DEFINES_ONLY
-CFLAGS += -DSPI_MASTER_0_ENABLE
-CFLAGS += -mcpu=cortex-m0
-CFLAGS += -mthumb -mabi=aapcs --std=gnu99
-CFLAGS += -Wall -Werror -O3
-CFLAGS += -mfloat-abi=soft
+COMMON_FLAGS  = -DESB_PRESENT
+COMMON_FLAGS += -DNRF51
+COMMON_FLAGS += -DDEBUG
+COMMON_FLAGS += -DENABLE_DEBUG_LOG_SUPPORT
+COMMON_FLAGS += -DBOARD_CUSTOM
+COMMON_FLAGS += -DBSP_DEFINES_ONLY
+COMMON_FLAGS += -DSPI_MASTER_0_ENABLE
+COMMON_FLAGS += -mcpu=cortex-m0
+COMMON_FLAGS += -mthumb -mabi=aapcs 
+COMMON_FLAGS += -Wall -Werror -O3
+COMMON_FLAGS += -mfloat-abi=soft
 # keep every function in separate section. This will allow linker to dump unused functions
-CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
-CFLAGS += -fno-builtin --short-enums
+COMMON_FLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
+COMMON_FLAGS += -fno-builtin --short-enums
+
+CFLAGS = ${COMMON_FLAGS}
+CFLAGS += --std=gnu99
+CPPFLAGS = ${COMMON_FLAGS}
+
 
 # keep every function in separate section. This will allow linker to dump unused functions
 LDFLAGS += -Xlinker -Map=$(LISTING_DIRECTORY)/$(OUTPUT_FILENAME).map
@@ -142,14 +154,19 @@ C_SOURCE_FILE_NAMES = $(notdir $(C_SOURCE_FILES))
 C_PATHS = $(call remduplicates, $(dir $(C_SOURCE_FILES) ) )
 C_OBJECTS = $(addprefix $(OBJECT_DIRECTORY)/, $(C_SOURCE_FILE_NAMES:.c=.o) )
 
+CPP_SOURCE_FILE_NAMES = $(notdir $(CPP_SOURCE_FILES))
+CPP_PATHS = $(call remduplicates, $(dir $(CPP_SOURCE_FILES) ) )
+CPP_OBJECTS = $(addprefix $(OBJECT_DIRECTORY)/, $(CPP_SOURCE_FILE_NAMES:.cpp=.o) )
+
 ASM_SOURCE_FILE_NAMES = $(notdir $(ASM_SOURCE_FILES))
 ASM_PATHS = $(call remduplicates, $(dir $(ASM_SOURCE_FILES) ))
 ASM_OBJECTS = $(addprefix $(OBJECT_DIRECTORY)/, $(ASM_SOURCE_FILE_NAMES:.s=.o) )
 
 vpath %.c $(C_PATHS)
+vpath %.cpp $(CPP_PATHS)
 vpath %.s $(ASM_PATHS)
 
-OBJECTS = $(C_OBJECTS) $(ASM_OBJECTS)
+OBJECTS = $(C_OBJECTS) $(ASM_OBJECTS) $(CPP_OBJECTS)
 
 nrf51422_xxac: OUTPUT_FILENAME := nrf51422_xxac
 nrf51422_xxac: LINKER_SCRIPT=esb_gcc_nrf51.ld
@@ -167,6 +184,11 @@ $(BUILD_DIRECTORIES):
 $(OBJECT_DIRECTORY)/%.o: %.c
 	@echo Compiling file: $(notdir $<)
 	$(NO_ECHO)$(CC) $(CFLAGS) $(INC_PATHS) -c -o $@ $<
+
+# Create objects from C++ SRC files
+$(OBJECT_DIRECTORY)/%.o: %.cpp
+	@echo Compiling file: $(notdir $<)
+	$(NO_ECHO)$(CC) $(CPPFLAGS) $(INC_PATHS) -c -o $@ $<
 
 # Assemble files
 $(OBJECT_DIRECTORY)/%.o: %.s

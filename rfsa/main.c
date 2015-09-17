@@ -18,8 +18,8 @@
 static uesb_payload_t rx_payload;
 #define UART_IRQ_PRIORITY                       APP_IRQ_PRIORITY_LOW
 
-#define     RX_BUF_SIZE     32   /**< Size of desired RX buffer, must be a power of 2 or ZERO (No FIFO). */
-#define     TX_BUF_SIZE     128   /**< Size of desired TX buffer, must be a power of 2 or ZERO (No FIFO) */
+#define     RX_BUF_SIZE     256   /**< Size of desired RX buffer, must be a power of 2 or ZERO (No FIFO). */
+#define     TX_BUF_SIZE     256   /**< Size of desired TX buffer, must be a power of 2 or ZERO (No FIFO) */
 
 typedef struct {
   uint32_t id;
@@ -32,6 +32,11 @@ typedef struct {
 #define SCHED_QUEUE_SIZE                 8
 
 #define TIMER_RTC_PRESCALER 0
+
+#define SPI_BUF_LEN 256
+static uint8_t spi_tx_buf[SPI_BUF_LEN];
+static uint8_t spi_rx_buf[SPI_BUF_LEN];
+static uint8_t spi_transmission_completed = true;
 
 /**
 *@breif UART configuration structure
@@ -47,6 +52,8 @@ static const app_uart_comm_params_t comm_params =
   .use_parity   = false,
   .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud115200
 };
+
+#define ENDL "\r\n"
 
 
 void uesb_event_handler()
@@ -78,9 +85,24 @@ void test_handler(void *p_event_data, uint16_t event_size)
 
 void wait_timer_handler(void *p_context)
 {
-  static int i=0;
-  app_trace_log("timer count %d\r\n", i++);
+  //static int i=0;
+  //app_trace_log("timer count %d\r\n", i++);
   LEDS_INVERT(BSP_LED_0_MASK);
+  if (spi_transmission_completed == false)
+  {
+    //app_trace_log("Previous SPI transmission still in progress" ENDL);
+    return;
+  }
+  LEDS_ON(BSP_LED_1_MASK);
+  //app_trace_log("SPI send %d bytes\r\n", SPI_BUF_LEN);
+  // put some data in the tx buffer
+  for (int i=0;i<SPI_BUF_LEN;i++)
+  {
+    spi_tx_buf[i] = 1 << (i & 7);
+  }
+  spi_transmission_completed = false;
+  uint32_t err_code = spi_master_send_recv(SPI_MASTER_0, spi_tx_buf, SPI_BUF_LEN, spi_rx_buf, SPI_BUF_LEN);
+  APP_ERROR_CHECK(err_code);
 }
 
 /**@brief   Function for handling UART interrupts.
@@ -118,7 +140,8 @@ void spi_master_event_handler(spi_master_evt_t spi_master_evt)
   {
   case SPI_MASTER_EVT_TRANSFER_COMPLETED:
     //Data transmission is ended successful. 'rx_buffer' has data received from SPI slave.
-    //transmission_completed = true;
+    spi_transmission_completed = true;
+    LEDS_OFF(BSP_LED_1_MASK);
     break;
 
   default:
@@ -133,6 +156,7 @@ void spi_master_init(void)
   spi_master_config_t spi_config = SPI_MASTER_INIT_DEFAULT;
 
   //Configure SPI master.
+  spi_config.SPI_Freq      = SPI_FREQUENCY_FREQUENCY_K125;
   spi_config.SPI_Pin_SCK  = SPIM0_SCK_PIN;
   spi_config.SPI_Pin_MISO = SPIM0_MISO_PIN;
   spi_config.SPI_Pin_MOSI = SPIM0_MOSI_PIN;
@@ -140,11 +164,7 @@ void spi_master_init(void)
 
   //Initialize SPI master.
   uint32_t err_code = spi_master_open(SPI_MASTER_0, &spi_config);
-  if (err_code != NRF_SUCCESS)
-  {
-    //Module initialization failed. Take recovery action.
-  }
-
+  APP_ERROR_CHECK(err_code);
   //Register SPI master event handler.
   spi_master_evt_handler_reg(SPI_MASTER_0, spi_master_event_handler);
 }
@@ -188,6 +208,7 @@ int main()
 
 
   DBGP(BSP_LED_1_MASK);
+  /*
   app_trace_log("Set up radio\r\n");
   // Setup the radio
   uesb_config_t uesb_config       = UESB_DEFAULT_CONFIG;
@@ -202,16 +223,18 @@ int main()
 
   uesb_init(&uesb_config);
 
+  */
+
   // set up the SPI master
-  //app_trace_log("Set up SPI\r\n");
-  //spi_master_init();
+  app_trace_log("Set up SPI\r\n");
+  spi_master_init();
 
   DBGP(BSP_LED_2_MASK); 
   app_timer_id_t wait_timer_id;
   err_code = app_timer_create(&wait_timer_id, APP_TIMER_MODE_REPEATED , wait_timer_handler);
   app_trace_log("%ld: wait_timer_id is %ld\r\n", err_code, wait_timer_id);
   APP_ERROR_CHECK(err_code);
-  uint32_t ticks = APP_TIMER_TICKS(1000, TIMER_RTC_PRESCALER);
+  uint32_t ticks = APP_TIMER_TICKS(10, TIMER_RTC_PRESCALER);
   err_code = app_timer_start(wait_timer_id, ticks, NULL);
   app_trace_log("%ld: ticks=%ld\r\n", err_code, ticks);
   err_code = app_sched_event_put(NULL, 0, test_handler);
