@@ -157,8 +157,8 @@ void ssd1306_begin(uint8_t vccstate, bool reset) {
 
   if (reset) {
     // Setup reset pin direction (used by both SPI and I2C)  
-    nrf_gpio_pin_write(rst, 1);
     nrf_gpio_cfg_output(rst);
+    nrf_gpio_pin_write(rst, 1);
     // VDD (3.3V) goes high at start, lets just chill for a ms
     nrf_delay_ms(1);
     // bring reset low
@@ -174,11 +174,12 @@ void ssd1306_begin(uint8_t vccstate, bool reset) {
   spi_master_config_t spi_config = SPI_MASTER_INIT_DEFAULT;
 
   //Configure SPI master.
-  spi_config.SPI_Freq      = SPI_FREQUENCY_FREQUENCY_K125;
+  spi_config.SPI_Freq      = SPI_FREQUENCY_FREQUENCY_M1;
   spi_config.SPI_Pin_SCK  = SPIM0_SCK_PIN;
   spi_config.SPI_Pin_MISO = SPIM0_MISO_PIN;
   spi_config.SPI_Pin_MOSI = SPIM0_MOSI_PIN;
   spi_config.SPI_Pin_SS   = SPIM0_SS_PIN;
+  spi_config.SPI_CONFIG_ORDER = SPI_CONFIG_ORDER_MsbFirst;
 
   //Initialize SPI master.
   uint32_t err_code = spi_master_open(spi, &spi_config);
@@ -430,7 +431,17 @@ void ssd1306_display(void) {
 
   while(spi_master_get_state(spi) == SPI_MASTER_STATE_BUSY);
   nrf_gpio_pin_write(dc, 1);
-  uint32_t err_code = spi_master_send_recv(spi, buffer, (SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT/8), buffer, (SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT/8));
+/*
+  for (uint16_t i=0; i<(SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT/8); i++) {
+    static uint8_t tx, rx;
+    tx = buffer[i];
+    while(spi_master_get_state(spi) == SPI_MASTER_STATE_BUSY);
+    uint32_t err_code = spi_master_send_recv(spi, &tx, 1, &rx, 1);
+    APP_ERROR_CHECK(err_code);
+  }
+
+*/
+  uint32_t err_code = spi_master_send_recv(spi, buffer, (SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT/8), NULL, (SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT/8));
   APP_ERROR_CHECK(err_code);
 }
 

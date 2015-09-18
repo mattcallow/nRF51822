@@ -109,7 +109,9 @@ COMMON_FLAGS += -DBSP_DEFINES_ONLY
 COMMON_FLAGS += -DSPI_MASTER_0_ENABLE
 COMMON_FLAGS += -mcpu=cortex-m0
 COMMON_FLAGS += -mthumb -mabi=aapcs 
-COMMON_FLAGS += -Wall -Werror -O3
+COMMON_FLAGS += -Wall -Werror
+#COMMON_FLAGS += -O3 
+COMMON_FLAGS +=  -g
 COMMON_FLAGS += -mfloat-abi=soft
 # keep every function in separate section. This will allow linker to dump unused functions
 COMMON_FLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
