@@ -40,6 +40,8 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 
 #source common to all targets
 C_SOURCE_FILES += \
+main.c\
+$(LIBRARIES_PATH)/Adafruit_SSD1306/Adafruit_SSD1306.c\
 $(abspath $(SDK_PATH)/components/toolchain/system_nrf51.c) \
 $(abspath $(SDK_PATH)/components/libraries/util/app_error.c) \
 $(abspath $(SDK_PATH)/components/drivers_nrf/uart/app_uart_fifo.c)\
@@ -56,13 +58,10 @@ $(SDK_PATH)/components/libraries/scheduler/app_scheduler.c\
 $(SDK_PATH)/components/libraries/util/app_util_platform.c\
 $(SDK_PATH)/components/drivers_nrf/hal/nrf_delay.c\
 $(SDK_PATH)/components/drivers_nrf/nrf_soc_nosd/nrf_soc.c\
-main.c \
 
 ## $(MICROESB_PATH)/common/micro_esb.c\
 
-CPP_SOURCE_FILES = \
-
-#$(LIBRARIES_PATH)/Adafruit_SSD1306/Adafruit_SSD1306.cpp\
+#CPP_SOURCE_FILES = \
 
 #assembly files common to all targets
 ASM_SOURCE_FILES  = $(abspath $(SDK_PATH)/components/toolchain/gcc/gcc_startup_nrf51.s)
@@ -241,4 +240,4 @@ flash: $(MAKECMDGOALS)
 ## Flash softdevice
 
 ctags:
-	ctags --exclude=$(abspath $(SDK_PATH))/examples --recurse . $(abspath $(SDK_PATH))
+	ctags --exclude=$(abspath $(SDK_PATH))/examples --recurse . $(abspath $(SDK_PATH)) $(LIBRARIES_PATH)

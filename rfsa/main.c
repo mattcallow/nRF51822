@@ -14,6 +14,7 @@
 #include "app_scheduler.h"
 #include "nordic_common.h"
 #include "boards.h"
+#include "Adafruit_SSD1306.h"
 
 static uesb_payload_t rx_payload;
 #define UART_IRQ_PRIORITY                       APP_IRQ_PRIORITY_LOW
@@ -32,11 +33,6 @@ typedef struct {
 #define SCHED_QUEUE_SIZE                 8
 
 #define TIMER_RTC_PRESCALER 0
-
-#define SPI_BUF_LEN 256
-static uint8_t spi_tx_buf[SPI_BUF_LEN];
-static uint8_t spi_rx_buf[SPI_BUF_LEN];
-static uint8_t spi_transmission_completed = true;
 
 /**
 *@breif UART configuration structure
@@ -85,24 +81,9 @@ void test_handler(void *p_event_data, uint16_t event_size)
 
 void wait_timer_handler(void *p_context)
 {
-  //static int i=0;
-  //app_trace_log("timer count %d\r\n", i++);
+  static int i=0;
+  app_trace_log("timer count %d\r\n", i++);
   LEDS_INVERT(BSP_LED_0_MASK);
-  if (spi_transmission_completed == false)
-  {
-    //app_trace_log("Previous SPI transmission still in progress" ENDL);
-    return;
-  }
-  LEDS_ON(BSP_LED_1_MASK);
-  //app_trace_log("SPI send %d bytes\r\n", SPI_BUF_LEN);
-  // put some data in the tx buffer
-  for (int i=0;i<SPI_BUF_LEN;i++)
-  {
-    spi_tx_buf[i] = 1 << (i & 7);
-  }
-  spi_transmission_completed = false;
-  uint32_t err_code = spi_master_send_recv(SPI_MASTER_0, spi_tx_buf, SPI_BUF_LEN, spi_rx_buf, SPI_BUF_LEN);
-  APP_ERROR_CHECK(err_code);
 }
 
 /**@brief   Function for handling UART interrupts.
@@ -134,40 +115,9 @@ void uart_evt_callback(app_uart_evt_t * uart_evt)
 
 }
 
-void spi_master_event_handler(spi_master_evt_t spi_master_evt)
-{
-  switch (spi_master_evt.evt_type)
-  {
-  case SPI_MASTER_EVT_TRANSFER_COMPLETED:
-    //Data transmission is ended successful. 'rx_buffer' has data received from SPI slave.
-    spi_transmission_completed = true;
-    LEDS_OFF(BSP_LED_1_MASK);
-    break;
-
-  default:
-    //No implementation needed.
-    break;
-  }
-}
-
-void spi_master_init(void)
-{
-  //Structure for SPI master configuration, initialized by default values.
-  spi_master_config_t spi_config = SPI_MASTER_INIT_DEFAULT;
-
-  //Configure SPI master.
-  spi_config.SPI_Freq      = SPI_FREQUENCY_FREQUENCY_K125;
-  spi_config.SPI_Pin_SCK  = SPIM0_SCK_PIN;
-  spi_config.SPI_Pin_MISO = SPIM0_MISO_PIN;
-  spi_config.SPI_Pin_MOSI = SPIM0_MOSI_PIN;
-  spi_config.SPI_Pin_SS   = SPIM0_SS_PIN;
-
-  //Initialize SPI master.
-  uint32_t err_code = spi_master_open(SPI_MASTER_0, &spi_config);
-  APP_ERROR_CHECK(err_code);
-  //Register SPI master event handler.
-  spi_master_evt_handler_reg(SPI_MASTER_0, spi_master_event_handler);
-}
+#define OLED_DC 6
+#define OLED_RESET 7
+#define OLED_SPI SPI_MASTER_0
 
 
 #ifdef DEBUG
@@ -187,6 +137,7 @@ int main()
   nrf_drv_clock_init(NULL);
   nrf_drv_clock_hfclk_request();
   nrf_drv_clock_lfclk_request();
+
 
 
   // init the UART
@@ -225,16 +176,13 @@ int main()
 
   */
 
-  // set up the SPI master
-  app_trace_log("Set up SPI\r\n");
-  spi_master_init();
 
   DBGP(BSP_LED_2_MASK); 
   app_timer_id_t wait_timer_id;
   err_code = app_timer_create(&wait_timer_id, APP_TIMER_MODE_REPEATED , wait_timer_handler);
   app_trace_log("%ld: wait_timer_id is %ld\r\n", err_code, wait_timer_id);
   APP_ERROR_CHECK(err_code);
-  uint32_t ticks = APP_TIMER_TICKS(10, TIMER_RTC_PRESCALER);
+  uint32_t ticks = APP_TIMER_TICKS(1000, TIMER_RTC_PRESCALER);
   err_code = app_timer_start(wait_timer_id, ticks, NULL);
   app_trace_log("%ld: ticks=%ld\r\n", err_code, ticks);
   err_code = app_sched_event_put(NULL, 0, test_handler);
@@ -243,6 +191,9 @@ int main()
   // app_trace_log("%ld: event scheduled\r\n", err_code);
   //unsigned int i=0;
   LEDS_OFF(LEDS_MASK);
+  ssd1306_init(OLED_SPI, OLED_DC, OLED_RESET );
+  ssd1306_begin(SSD1306_SWITCHCAPVCC, true);
+  ssd1306_display();
   for(;;)
   {
     app_sched_execute();
