@@ -239,7 +239,7 @@ int main()
   err_code = app_timer_create(&display_timer_id, APP_TIMER_MODE_REPEATED , display_timer_handler);
   app_trace_log("%ld: display_timer_id is %ld\r\n", err_code, display_timer_id);
   APP_ERROR_CHECK(err_code);
-  uint32_t ticks = APP_TIMER_TICKS(500, TIMER_RTC_PRESCALER);
+  uint32_t ticks = APP_TIMER_TICKS(200, TIMER_RTC_PRESCALER);
   err_code = app_timer_start(display_timer_id, ticks, NULL);
   app_trace_log("%ld: ticks=%ld\r\n", err_code, ticks);
 
@@ -263,7 +263,9 @@ int main()
     {
       NRF_RADIO->EVENTS_RSSIEND = 0;
       //app_trace_log("radio RSSI for %lu=%lu" ENDL, freq,NRF_RADIO->RSSISAMPLE);
-      samples[freq] = NRF_RADIO->RSSISAMPLE/2;
+      uint32_t reading = NRF_RADIO->RSSISAMPLE/2;
+      static const double IIR_COEFF=0.2;
+      samples[freq]=(double)samples[freq]*IIR_COEFF+((double)reading*(1.0-IIR_COEFF));
       NRF_RADIO->TASKS_DISABLE=1;
     }
     if(NRF_RADIO->EVENTS_DISABLED == 1)
