@@ -41,7 +41,19 @@ remduplicates = $(strip $(if $1,$(firstword $1) $(call remduplicates,$(filter-ou
 #source common to all targets
 C_SOURCE_FILES += \
 main.c\
-$(LIBRARIES_PATH)/Adafruit_SSD1306/Adafruit_SSD1306.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_dev_ssd1306_128x64.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_ll_api.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_com_api.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_pb.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_pb8v1.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_font.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_state.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_page.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_font_data.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_com_null.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_rect.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_clip.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/nrf51822/common/u8g_arm.c\
 $(abspath $(SDK_PATH)/components/toolchain/system_nrf51.c) \
 $(abspath $(SDK_PATH)/components/libraries/util/app_error.c) \
 $(abspath $(SDK_PATH)/components/drivers_nrf/uart/app_uart_fifo.c)\
@@ -59,7 +71,7 @@ $(SDK_PATH)/components/libraries/util/app_util_platform.c\
 $(SDK_PATH)/components/drivers_nrf/hal/nrf_delay.c\
 $(SDK_PATH)/components/drivers_nrf/nrf_soc_nosd/nrf_soc.c\
 
-## $(MICROESB_PATH)/common/micro_esb.c\
+##$(MICROESB_PATH)/common/micro_esb.c\
 
 #CPP_SOURCE_FILES = \
 
@@ -88,8 +100,8 @@ INC_PATHS += -I$(abspath $(SDK_PATH)/components/drivers_nrf/common)
 INC_PATHS += -I$(abspath $(SDK_PATH)/components/drivers_nrf/spi_master)
 INC_PATHS += -I$(SDK_PATH)/components/drivers_nrf/clock
 INC_PATHS += -I$(abspath $(MICROESB_PATH)/common)
-INC_PATHS += -I$(LIBRARIES_PATH)/Adafruit_SSD1306
-INC_PATHS += -I$(LIBRARIES_PATH)/Adafruit-GFX-Library
+INC_PATHS += -I$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src
+INC_PATHS += -I$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/nrf51822/common
 INC_PATHS += -I.
 
 OBJECT_DIRECTORY = _build
@@ -242,4 +254,5 @@ flash: $(MAKECMDGOALS)
 ## Flash softdevice
 
 ctags:
-	ctags --exclude=$(abspath $(SDK_PATH))/examples --recurse . $(abspath $(SDK_PATH)) $(LIBRARIES_PATH)
+	echo $(C_PATHS)
+	ctags --exclude=$(abspath $(SDK_PATH))/examples --recurse . $(abspath $(SDK_PATH)) $(C_PATHS)

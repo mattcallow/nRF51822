@@ -418,24 +418,6 @@ void u8g_10MicroDelay(void)
 /*========================================================================*/
 /* u8glib com procedure */
 
-/* gps board */
-/*
-uint16_t u8g_pin_a0 = PIN(0,11);
-uint16_t u8g_pin_cs = PIN(0,6);
-uint16_t u8g_pin_rst = PIN(0,5);
-*/
-
-/* new gps board */
-/*
-uint16_t u8g_pin_a0 = PIN(1,0);
-uint16_t u8g_pin_cs = PIN(0,8);
-uint16_t u8g_pin_rst = PIN(0,6);
-*/
-
-/* eval board */
-uint16_t u8g_pin_a0 = PIN(1,1);
-uint16_t u8g_pin_cs = PIN(1,2);
-uint16_t u8g_pin_rst = PIN(1,0);
 
 uint8_t u8g_com_hw_spi_fn(u8g_t *u8g, uint8_t msg, uint8_t arg_val, void *arg_ptr)
 {
@@ -446,7 +428,7 @@ uint8_t u8g_com_hw_spi_fn(u8g_t *u8g, uint8_t msg, uint8_t arg_val, void *arg_pt
     
     case U8G_COM_MSG_INIT:
 
-       if ( arg_val <= U8G_SPI_CLK_CYCLE_50NS )
+      if ( arg_val <= U8G_SPI_CLK_CYCLE_50NS )
       {
 	spi_init(50);
       }
@@ -463,9 +445,9 @@ uint8_t u8g_com_hw_spi_fn(u8g_t *u8g, uint8_t msg, uint8_t arg_val, void *arg_pt
 	spi_init(1200);
       }
 
-      set_gpio_mode(u8g_pin_rst, 1, 0);		/* output, no pullup */
-      set_gpio_mode(u8g_pin_cs, 1, 0);		/* output, no pullup */
-      set_gpio_mode(u8g_pin_a0, 1, 0);		/* output, no pullup */
+      nrf_gpio_cfg_output(OLED_RESET);
+      nrf_gpip_cfg_output(OLED_DC);
+      //set_gpio_mode(u8g_pin_cs, 1, 0);		/* output, no pullup */
 
       u8g_MicroDelay();      
       break;
@@ -495,7 +477,7 @@ uint8_t u8g_com_hw_spi_fn(u8g_t *u8g, uint8_t msg, uint8_t arg_val, void *arg_pt
       break;
       
     case U8G_COM_MSG_RESET:
-      set_gpio_level(u8g_pin_rst, arg_val);
+      nrf_gpio_pin_write(OLED_RESET, arg_val);
       u8g_10MicroDelay();
       break;
       
