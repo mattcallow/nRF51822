@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <math.h>
 #include "nrf.h"
-#include "micro_esb.h"
-#include "uesb_error_codes.h"
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
 #include "nrf_drv_clock.h"
@@ -16,7 +14,6 @@
 #include "boards.h"
 #include "u8g_arm.h"
 
-static uesb_payload_t rx_payload;
 #define UART_IRQ_PRIORITY                       APP_IRQ_PRIORITY_LOW
 
 #define     RX_BUF_SIZE     256   /**< Size of desired RX buffer, must be a power of 2 or ZERO (No FIFO). */
@@ -35,8 +32,15 @@ typedef struct {
 
 
 #define MAX_SAMPLES 100
+#define MAX_CYCLES 100
+// IIR COEFF used by the IIR filter to average the samples
+#define IIR_COEFF 0.9
 
-uint8_t samples[MAX_SAMPLES];
+typedef struct {
+  uint8_t avg;
+  uint8_t max;
+} sample_t;
+sample_t samples[MAX_SAMPLES];
 
 // graphics/display structure
 u8g_t u8g;
@@ -66,49 +70,28 @@ static const app_uart_comm_params_t comm_params =
 
 #define ENDL "\r\n"
 
-
-void uesb_event_handler()
-{
-  static uint32_t rf_interrupts;
-
-  uesb_get_clear_interrupts(&rf_interrupts);
-
-  if(rf_interrupts & UESB_INT_TX_SUCCESS_MSK)
-  {   
-  }
-
-  if(rf_interrupts & UESB_INT_TX_FAILED_MSK)
-  {
-  }
-
-  if(rf_interrupts & UESB_INT_RX_DR_MSK)
-  {
-    uesb_read_rx_payload(&rx_payload);
-    NRF_GPIO->OUTCLR = 0xFF << 8;
-    NRF_GPIO->OUTSET = rx_payload.data[1] << 8;
-  }
-}
-
-void test_handler(void *p_event_data, uint16_t event_size)
-{
-  app_trace_log("test_handler\r\n");
-}
-
 void display_timer_handler(void *p_context)
 {
   static int i=0;
   //app_trace_log("timer count %d\r\n", i++);
   LEDS_INVERT(BSP_LED_0_MASK);
+  #define X_OFFSET 14
+  #define X_AXIS_POS 54
   u8g_FirstPage(&u8g);
   do
   {
-    //u8g_SetFont(&u8g, u8g_font_unifont);
-    //u8g_DrawStr(&u8g,  i, 12, "Hello World!");
-    for (int x=0;x<MAX_SAMPLES;x++) 
+    u8g_SetFont(&u8g, u8g_font_5x7);
+    for (int i=0;i<MAX_SAMPLES;i++) 
     {
-      uint8_t h = samples[x];
+      uint8_t x = i + X_OFFSET;
+      uint8_t h = samples[i].avg;
       u8g_DrawVLine(&u8g, x, h, 64-h);
+      u8g_DrawPixel(&u8g, x, 64-samples[i].max);
     }
+    const char *x_label_1 = "2.4";
+    const char *x_label_2 = "2.5";
+    u8g_DrawStr(&u8g,  X_OFFSET - MIN(0, u8g_GetStrWidth(&u8g, x_label_1)), X_AXIS_POS, x_label_1);
+    u8g_DrawStr(&u8g,  X_OFFSET+MAX_SAMPLES-MIN(0, u8g_GetStrWidth(&u8g, x_label_2)), X_AXIS_POS, x_label_2);
   } while ( u8g_NextPage(&u8g) );
 
   i++;
@@ -143,37 +126,6 @@ void uart_evt_callback(app_uart_evt_t * uart_evt)
 
 }
 
-void radio_event_handler(void * p_event_data, uint16_t event_size)
-{
-  LEDS_OFF(BSP_LED_1_MASK);
-  my_event_t *p_evt = (my_event_t *)p_event_data;
-  switch (p_evt->id)
-  {
-  case MEVT_RF_READY:
-    //app_trace_log("Radio Ready" ENDL);
-    NRF_RADIO->TASKS_START=1;
-    NRF_RADIO->TASKS_RSSISTART=1;
-    break;
-  case MEVT_RF_RSSI:
-    //app_trace_log("Radio RSSI ready -%d" ENDL, (int)(NRF_RADIO->RSSISAMPLE));
-    break;
-
-  }
-}
-
-void RADIO_IRQHandler()
-{
-  LEDS_ON(BSP_LED_1_MASK);
-  static my_event_t evt;
-  if(NRF_RADIO->EVENTS_READY && (NRF_RADIO->INTENSET & RADIO_INTENSET_READY_Msk))
-  {
-      NRF_RADIO->EVENTS_READY = 0;
-      evt.id = MEVT_RF_READY;
-      app_sched_event_put(&evt, sizeof(evt), radio_event_handler);
-  }
-  NVIC_ClearPendingIRQ(RADIO_IRQn);
-}
-
 #ifdef DEBUG
 #define DBG_DELAY 200
 #define DBGP(mask) do { LEDS_ON(mask); nrf_delay_ms(DBG_DELAY); } while (0);
@@ -184,7 +136,6 @@ void RADIO_IRQHandler()
 int main()
 {
   uint32_t err_code;
-  // nrf_gpio_range_cfg_output(8, 31);
   LEDS_CONFIGURE(LEDS_MASK);
   LEDS_OFF(LEDS_MASK);
   DBGP(BSP_LED_0_MASK);
@@ -192,8 +143,6 @@ int main()
   nrf_drv_clock_init(NULL);
   nrf_drv_clock_hfclk_request();
   nrf_drv_clock_lfclk_request();
-
-
 
   // init the UART
   APP_UART_FIFO_INIT(&comm_params,
@@ -215,24 +164,7 @@ int main()
 
   DBGP(BSP_LED_1_MASK);
   app_trace_log("Set up radio state=%lu" ENDL, NRF_RADIO->STATE);
-  //NRF_RADIO->INTENSET = RADIO_INTENSET_READY_Msk | RADIO_INTENSET_RSSIEND_Msk;
-  //NVIC_SetPriority(RADIO_IRQn, 0x01);
-  //NVIC_EnableIRQ(RADIO_IRQn);
   NRF_RADIO->TASKS_RXEN=1;
-  /*
-  // Setup the radio
-  uesb_config_t uesb_config       = UESB_DEFAULT_CONFIG;
-  uesb_config.rf_channel          = 5;
-  uesb_config.crc                 = UESB_CRC_16BIT;
-  uesb_config.dynamic_ack_enabled = 0;
-  uesb_config.payload_length      = 8;
-  uesb_config.protocol            = UESB_PROTOCOL_ESB_DPL;
-  uesb_config.bitrate             = UESB_BITRATE_2MBPS;
-  uesb_config.mode                = UESB_MODE_PRX;
-  uesb_config.event_handler       = uesb_event_handler;
-
-  uesb_init(&uesb_config);
-  */
 
   DBGP(BSP_LED_2_MASK); 
   app_timer_id_t display_timer_id;
@@ -248,6 +180,7 @@ int main()
   u8g_InitComFn(&u8g, &u8g_dev_ssd1306_128x64_hw_spi, u8g_com_hw_spi_fn);
   u8g_SetDefaultForegroundColor(&u8g);
   uint32_t freq = 0;
+  uint32_t cycle=0;
   for(;;)
   {
     app_sched_execute();
@@ -262,22 +195,28 @@ int main()
     if(NRF_RADIO->EVENTS_RSSIEND == 1)
     {
       NRF_RADIO->EVENTS_RSSIEND = 0;
-      //app_trace_log("radio RSSI for %lu=%lu" ENDL, freq,NRF_RADIO->RSSISAMPLE);
       uint32_t reading = NRF_RADIO->RSSISAMPLE/2;
-      static const double IIR_COEFF=0.2;
-      samples[freq]=(double)samples[freq]*IIR_COEFF+((double)reading*(1.0-IIR_COEFF));
+      samples[freq].avg=samples[freq].avg*IIR_COEFF+(reading*(1.0-IIR_COEFF));
+      if (cycle == 0 || reading > samples[freq].max)
+      {
+        samples[freq].max = reading;
+      }
       NRF_RADIO->TASKS_DISABLE=1;
     }
     if(NRF_RADIO->EVENTS_DISABLED == 1)
     {
       NRF_RADIO->EVENTS_DISABLED = 0;
       freq++;
-      if (freq > MAX_SAMPLES) freq=0;
+      if (freq > MAX_SAMPLES) 
+      {
+        freq=0;
+        cycle++;
+        if (cycle > MAX_CYCLES) cycle=0;
+      }
       NRF_RADIO->FREQUENCY = freq;
       NRF_RADIO->TASKS_RXEN=1;
     }
   }
-
   return 0;
 }
 
