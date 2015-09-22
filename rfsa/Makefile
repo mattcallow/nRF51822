@@ -53,6 +53,7 @@ $(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_font_data.c\
 $(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_com_null.c\
 $(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_rect.c\
 $(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_clip.c\
+$(LIBRARIES_PATH)/u8glib_arm_v1.18.1/src/u8g_line.c\
 $(LIBRARIES_PATH)/u8glib_arm_v1.18.1/nrf51822/common/u8g_arm.c\
 $(abspath $(SDK_PATH)/components/toolchain/system_nrf51.c) \
 $(abspath $(SDK_PATH)/components/libraries/util/app_error.c) \
@@ -255,4 +256,5 @@ flash: $(MAKECMDGOALS)
 
 ctags:
 	echo $(C_PATHS)
-	ctags --exclude=$(abspath $(SDK_PATH))/examples --recurse . $(abspath $(SDK_PATH)) $(C_PATHS)
+	ctags --exclude=$(abspath $(SDK_PATH))/examples --recurse . $(abspath $(SDK_PATH)) $(C_PATHS) /usr/bin/../arm-none-eabi/include
+
