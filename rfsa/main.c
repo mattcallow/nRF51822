@@ -183,7 +183,7 @@ int main()
   err_code = app_timer_create(&display_timer_id, APP_TIMER_MODE_REPEATED , display_timer_handler);
   app_trace_log("%ld: display_timer_id is %ld\r\n", err_code, display_timer_id);
   APP_ERROR_CHECK(err_code);
-  uint32_t ticks = APP_TIMER_TICKS(200, TIMER_RTC_PRESCALER);
+  uint32_t ticks = APP_TIMER_TICKS(500, TIMER_RTC_PRESCALER);
   err_code = app_timer_start(display_timer_id, ticks, NULL);
   app_trace_log("%ld: ticks=%ld\r\n", err_code, ticks);
 
