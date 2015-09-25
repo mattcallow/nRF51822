@@ -170,6 +170,7 @@ int main()
     app_trace_log("HF clock %d LF clock %d\r\n", nrf_clock_hf_is_running(), nrf_clock_lf_is_running());
   } while(!nrf_clock_lf_is_running());
   app_trace_log("HF clock %d LF clock %d\r\n", nrf_clock_hf_is_running(), nrf_clock_lf_is_running());
+
   APP_SCHED_INIT(SCHED_MAX_EVENT_DATA_SIZE, SCHED_QUEUE_SIZE);
   APP_TIMER_APPSH_INIT(TIMER_RTC_PRESCALER, 8, 8, true);
 
@@ -183,7 +184,7 @@ int main()
   err_code = app_timer_create(&display_timer_id, APP_TIMER_MODE_REPEATED , display_timer_handler);
   app_trace_log("%ld: display_timer_id is %ld\r\n", err_code, display_timer_id);
   APP_ERROR_CHECK(err_code);
-  uint32_t ticks = APP_TIMER_TICKS(500, TIMER_RTC_PRESCALER);
+  uint32_t ticks = APP_TIMER_TICKS(350, TIMER_RTC_PRESCALER);
   err_code = app_timer_start(display_timer_id, ticks, NULL);
   app_trace_log("%ld: ticks=%ld\r\n", err_code, ticks);
 
