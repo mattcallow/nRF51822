@@ -1,3 +1,8 @@
+/*
+ NRF51 RF analyser
+ (c) Matt Callow 2015
+ MIT License
+*/
 #include <stdio.h>
 #include <math.h>
 #include "nrf.h"
